@@ -85,6 +85,26 @@ Cloud.prototype.browser = function(name, version, platform){
   });
 };
 
+
+/**
+ * Given browser {browserName, platform, version}, terminate the connection
+ * to sauceLabs (end test)
+ *
+ * @browser
+ */
+Cloud.prototype.stop_browser = function(browser){
+  var self = this;
+
+  if (self.connections){
+    self.connections.forEach(function(conn){
+      if (conn && browser && conn.browserName == browser.browserName &&
+        conn.platform == browser.platform && conn.version == browser.version){
+        conn.quit();
+      }
+    });
+  }
+}
+
 /**
  * Start cloud tests and invoke `fn(err, results)`.
  *
@@ -103,6 +123,9 @@ Cloud.prototype.start = function(fn){
   var batch = new Batch;
   fn = fn || function(){};
 
+  // keeps track of connections
+  var conns = [];
+
   this.browsers.forEach(function(conf){
     conf.tags = self.tags;
     conf.name = self.name;
@@ -110,6 +133,14 @@ Cloud.prototype.start = function(fn){
     batch.push(function(done){
       debug('running %s %s %s', conf.browserName, conf.version, conf.platform);
       var browser = wd.remote('ondemand.saucelabs.com', 80, self.user, self.key);
+
+      browser.browserName = conf.browserName;
+      browser.platform = conf.platform;
+      browser.version = conf.version;
+
+      // add connection to list of connections
+      conns.push(browser);
+
       self.emit('init', conf);
 
       browser.init(conf, function(){
@@ -142,5 +173,6 @@ Cloud.prototype.start = function(fn){
     });
   });
 
+  self.connections = conns;
   batch.end(fn);
 };
